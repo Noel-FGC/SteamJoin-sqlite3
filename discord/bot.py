@@ -4,24 +4,35 @@ from typing import Literal
 
 import discord
 from discord.ext import commands
-import redis
+# import redis
+import sqlite3
 import requests
+
+db = sqlite3.connect("database.db")
+db.execute("""
+    CREATE TABLE IF NOT EXISTS Users(
+        DiscordID BIGINT UNIQUE PRIMARY KEY,
+        SteamID BIGINT
+    )""")
+db.commit()
 
 print(f'Python {version}\n'
       f'discord.py {discord.__version__} | '
-      f'hiredis-py {redis.__version__} | '
+      # f'hiredis-py {redis.__version__} | '
+      # f'sqlite3 {sqlite3.__version__}    | '
       f'requests {requests.__version__}')
 
 
 class MyBot(commands.Bot):
 
     def __init__(self, *, intents: discord.Intents):
+
+
         super().__init__(
             activity=discord.CustomActivity(name='/invite | steamjoin.com'),
             command_prefix=commands.when_mentioned,
             intents=intents
         )
-    
     async def setup_hook(self):
         cogs = [
             'invite',  # Steam invite command
@@ -65,7 +76,7 @@ async def about(ctx: commands.Context):
             inline=False)
         embed.add_field(
             name='Source Code',
-            value='https://github.com/blair-c/SteamJoin',
+            value='https://github.com/Noel-FGC/SteamJoin-sqlite3',
             inline=False)
         await ctx.send(embed=embed)
 

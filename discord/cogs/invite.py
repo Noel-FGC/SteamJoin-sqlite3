@@ -5,12 +5,13 @@ from urllib.parse import quote
 import discord
 from discord import app_commands, ui
 from discord.ext import commands
-import redis
+from bot import db
+# import redis
+import sqlite3
 
-r = redis.Redis.from_url(getenv('REDIS_URL'))
+# r = redis.Redis.from_url(getenv('REDIS_URL'))
 STEAMKEY = getenv('STEAMKEY')
 COLOR = 1908518
-
 
 async def invite(interaction: discord.Interaction, steamid: str, ping: discord.Member, update_db=False):
     """Final logic once Steam ID is set."""
@@ -27,7 +28,19 @@ async def invite(interaction: discord.Interaction, steamid: str, ping: discord.M
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         return
     if update_db:
-        r.set(interaction.user.id, info['steamid'])
+        row = db.execute("SELECT * FROM Users WHERE DiscordID = ?",
+                                      (interaction.user.id,)).fetchone()
+        if row:
+            db.execute(
+                    "UPDATE Users SET SteamID = ? WHERE DiscordID = ?",
+                    (info['steamid'], interaction.user.id,)
+            )
+        else:
+            db.execute(
+                    "INSERT INTO Users (DiscordID, SteamID) VALUES (?, ?)",
+                    (interaction.user.id,steamid,)
+                    )
+        db.commit()
     # Invite
     if info.get('communityvisibilitystate') == 1:
         embed = discord.Embed(title='Error: Private Profile', color=COLOR)
@@ -143,7 +156,14 @@ class Invite(commands.Cog):
     @app_commands.command(name='invite')
     async def invite_cmd(self, interaction: discord.Interaction, ping: discord.Member):
         """Invite user with Steam "Join Game" lobby link"""
-        if steamid := r.get(interaction.user.id):
+
+        row = db.execute(
+                "SELECT SteamID FROM Users WHERE DiscordID = ?",
+                (interaction.user.id,)
+                ).fetchone()
+
+        if row:
+            steamid = row[0];
             await invite(interaction=interaction, steamid=steamid, ping=ping)
         else:
             await interaction.response.send_modal(SteamModal(ping=ping))
